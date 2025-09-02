@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
 project(mlc_llm C CXX)
 
+option(ENABLE_DEBUG_MESSAGES "Enable debug output" OFF)
+if(ENABLE_DEBUG_MESSAGES)
+    add_compile_definitions(DEBUG_MODE)
+endif()
+
 include(CheckCXXCompilerFlag)
 if(MSVC)
   set(CMAKE_CXX_FLAGS "/fp:fast ${CMAKE_CXX_FLAGS}")
@@ -41,7 +46,7 @@ endif()
 option(BUILD_CPP_TEST "Build cpp unittests" OFF)
 
 set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # tvm runtime config: minimize runtime components
