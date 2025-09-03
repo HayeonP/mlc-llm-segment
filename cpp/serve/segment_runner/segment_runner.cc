@@ -84,22 +84,6 @@ void SegmentRunner::Init(std::string model, tvm::Device& device, std::string mod
 
   init_segment_runner_engine_func(device, opt_callback, opt_recorder); 
 
-  // - Create the background engine-driving thread and start the loop
-  // _ffi["run_background_loop"]
-  // tvm::ffi::Function run_background_loop_func = _engine_module->GetFunction("run_background_loop");  
-  // _background_loop_thread = std::thread([func = std::move(run_background_loop_func)](){
-  //     std::cout<<"[debug] run background loop"<<std::endl;
-  //     func();
-  // });
-
-  // _ffi["run_background_stream_back_loop"]
-  tvm::ffi::Function run_background_stream_back_loop_func = _engine_module->GetFunction("run_background_stream_back_loop");
-  _background_stream_back_loop_thread = std::thread([func = std::move(run_background_stream_back_loop_func)](){
-      func();
-  });
-
-  _terminated = false;
-
   // Set to same as python value
   engine_config->model = tvm::ffi::String(model_args[0]["model"]);
   engine_config->model_lib = model_args[0]["model_lib"];
@@ -378,9 +362,7 @@ Generator<std::vector<CallbackStreamOutput>> SegmentRunner::_generate_segment_ou
   // abort_func is executed when this function returns
   ScopeFail guard([&abort_request_func] { abort_request_func(); });
 
-  std::cout<<"Before get"<<std::endl;
   tvm::ffi::Array<mlc::llm::serve::RequestStreamOutput> delta_outputs_ = _sync_output_queue.get();
-  std::cout<<"After get"<<std::endl;
   std::vector<mlc::llm::serve::RequestStreamOutput> delta_outputs(delta_outputs_.begin(), delta_outputs_.end());
   std::vector<std::vector<CallbackStreamOutput>> request_outputs;
   Optional<String> request_final_usage_json_str;

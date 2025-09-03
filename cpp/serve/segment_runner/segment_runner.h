@@ -21,10 +21,8 @@
 #include "../../serve/request.h"
 #include "../../tokenizers/tokenizers.h"
 #include "../../tokenizers/streamer.h"
-#include "../../frontend/engine_base.h"
 #include "../../json_ffi/conv_template.h"
 #include "../../json_ffi/openai_api_protocol.h"
-#include "../../frontend/mlc_chat_config.h"
 
 #include <tvm/runtime/device_api.h>
 #include <tvm/ffi/function.h>
@@ -45,6 +43,8 @@
 #include "./scope_fail.h"
 #include "./generator.h"
 #include "./data_types.h"
+#include "./engine_base.h"
+#include "./mlc_chat_config.h"
 
 using namespace tvm;
 using namespace ffi;
@@ -65,11 +65,7 @@ using ChatCompletionResponseChoice = mlc::llm::json_ffi::ChatCompletionResponseC
 class SegmentRunner {
 public:
   SegmentRunner() {}
-  ~SegmentRunner(){
-    tvm::ffi::Function exit_background_loop_func = _engine_module->GetFunction("exit_background_loop");
-    exit_background_loop_func();    
-    _background_stream_back_loop_thread.join();
-  }
+  ~SegmentRunner(){}
   void Init(std::string model, tvm::Device& device, std::string model_lib, std::string mode);
   void Request(std::string& prompt, int max_tokens);
   std::string Execute();

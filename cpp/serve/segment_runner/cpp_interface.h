@@ -21,10 +21,9 @@
 #include "../../serve/request.h"
 #include "../../tokenizers/tokenizers.h"
 #include "../../tokenizers/streamer.h"
-#include "../../frontend/engine_base.h"
 #include "../../json_ffi/conv_template.h"
 #include "../../json_ffi/openai_api_protocol.h"
-#include "../../frontend/mlc_chat_config.h"
+
 
 #include <tvm/runtime/device_api.h>
 #include <tvm/ffi/function.h>
@@ -45,6 +44,8 @@
 #include "./scope_fail.h"
 #include "./generator.h"
 #include "./data_types.h"
+#include "./engine_base.h"
+#include "./mlc_chat_config.h"
 
 using namespace tvm;
 using namespace ffi;

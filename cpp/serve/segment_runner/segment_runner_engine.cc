@@ -63,6 +63,7 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
     if (background_engine_ != nullptr) {
       background_engine_->Step();          
     }
+    WriteResponse();
   }
 
   void Unload() final {
@@ -70,7 +71,8 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
     EngineUnloadImpl();  
     if (background_engine_ != nullptr) {      
       background_engine_->Step();                
-    }     
+    }
+    WriteResponse();
   }
 
   void Reset() final {
@@ -80,7 +82,8 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
     }
     if (background_engine_ != nullptr) {      
       background_engine_->Step();                
-    }    
+    }
+    WriteResponse();    
   }
 
   void AddRequest(Request request) final { 
@@ -91,12 +94,14 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
     if (background_engine_ != nullptr) {      
       background_engine_->Step();                
     }
+    WriteResponse();
   }
 
   void RunSegment() final {
     if (background_engine_ != nullptr) {      
       background_engine_->Step();                
     }
+    WriteResponse();
   }
 
 
@@ -112,38 +117,31 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
     if (background_engine_ != nullptr) {      
       background_engine_->Step();                
     }
+    WriteResponse();
   }
 
-  void RunBackgroundStreamBackLoop() final {
-    // The local vectors that load the request stream callback inputs from critical regions.
-    std::vector<Array<RequestStreamOutput>> local_request_stream_callback_inputs;
-    std::vector<RequestStreamOutput> flattened_callback_inputs;
+  void WriteResponse() {
+    {
+      std::unique_lock<std::mutex> lock(request_stream_callback_mutex_);
+      stream_callback_waiting_ = true;
+      stream_callback_waiting_ = false;
 
-    while (!exit_now_.load(std::memory_order_relaxed)) {
-      {
-        std::unique_lock<std::mutex> lock(request_stream_callback_mutex_);
-        stream_callback_waiting_ = true;
-        request_stream_callback_cv_.wait(lock, [this] {
-          return pending_request_stream_callback_cnt_.load() > 0 ||
-                 exit_now_.load(std::memory_order_relaxed);
-        });
-        stream_callback_waiting_ = false;
-
-        local_request_stream_callback_inputs = request_stream_callback_inputs_;
-        request_stream_callback_inputs_.clear();
-        pending_request_stream_callback_cnt_ = 0;
-      }
-      for (const Array<RequestStreamOutput>& callback_inputs :
-           local_request_stream_callback_inputs) {
-        for (const RequestStreamOutput& callback_input : callback_inputs) {
-          flattened_callback_inputs.push_back(callback_input);
-        }
-      }
-      if (!flattened_callback_inputs.empty()) {
-        request_stream_callback_(Array<RequestStreamOutput>(flattened_callback_inputs));
-      }
-      flattened_callback_inputs.clear();
+      _local_request_stream_callback_inputs = request_stream_callback_inputs_;
+      request_stream_callback_inputs_.clear();
+      pending_request_stream_callback_cnt_ = 0;
     }
+
+    for (const Array<RequestStreamOutput>& callback_inputs :
+          _local_request_stream_callback_inputs) {
+      for (const RequestStreamOutput& callback_input : callback_inputs) {
+        _flattened_callback_inputs.push_back(callback_input);
+      }
+    }
+    if (!_flattened_callback_inputs.empty()) {
+      request_stream_callback_(Array<RequestStreamOutput>(_flattened_callback_inputs));
+    }
+    _flattened_callback_inputs.clear();
+    
   }
 
   void ExitBackgroundLoop() final {
@@ -311,11 +309,10 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
   bool reload_finished_ = false;
   /*! \brief A boolean indicating if the engine unload has finished. */
   bool unload_finished_ = false;
-  /*! \brief A boolean indicating if step is running. */
-
-  bool activated_ = false;
-  bool loop_done_ = false;
-  bool is_first_ = true;
+  
+  // The local vectors that load the request stream callback inputs from critical regions.
+  std::vector<Array<RequestStreamOutput>> _local_request_stream_callback_inputs;
+  std::vector<RequestStreamOutput> _flattened_callback_inputs;
 };
 
 /*! \brief The implementation of SegmentRunnerEngine. */
@@ -328,8 +325,6 @@ class SegmentRunnerEngineModule : public SegmentRunnerEngineImpl, public ModuleN
   TVM_MODULE_VTABLE_ENTRY("run_segment", &SegmentRunnerEngineImpl::RunSegment);
   TVM_MODULE_VTABLE_ENTRY("create_request", &SegmentRunnerEngineImpl::CreateRequest);
   TVM_MODULE_VTABLE_ENTRY("abort_request", &SegmentRunnerEngineImpl::AbortRequest);
-  TVM_MODULE_VTABLE_ENTRY("run_background_stream_back_loop",
-                          &SegmentRunnerEngineImpl::RunBackgroundStreamBackLoop);
   TVM_MODULE_VTABLE_ENTRY("exit_background_loop", &SegmentRunnerEngineImpl::ExitBackgroundLoop);
   TVM_MODULE_VTABLE_ENTRY("get_complete_engine_config",
                           &SegmentRunnerEngineImpl::GetCompleteEngineConfigJSONString);

@@ -57,9 +57,6 @@ class SegmentRunnerEngine {
   /*! \brief Reset the engine to the initial state. */
   virtual void Reset() = 0;
 
-  /*! \brief Starts the request stream callback loop. */
-  virtual void RunBackgroundStreamBackLoop() = 0;
-
   /*!
    * \brief Notify the SegmentRunnerEngine to exit the background
    * request processing loop. This method is invoked by threads
