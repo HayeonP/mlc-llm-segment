@@ -56,7 +56,9 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
   }
 
   void Reload(String engine_config_json_str) final {
+  #ifdef DEBUG_MODE
     std::cout<< "[engine debug] ***Reload engine***" << std::endl;
+  #endif
     EngineUnloadImpl();
     EngineReloadImpl(Downcast<String>(engine_config_json_str));
 
@@ -67,7 +69,9 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
   }
 
   void Unload() final {
+#ifdef DEBUG_MODE    
     std::cout<< "[engine debug] ***Unload engine***" << std::endl;
+#endif
     EngineUnloadImpl();  
     if (background_engine_ != nullptr) {      
       background_engine_->Step();                
@@ -76,7 +80,9 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
   }
 
   void Reset() final {
+#ifdef DEBUG_MODE    
     std::cout<< "[engine debug] ***Reset engine***" << std::endl;
+#endif
     if (background_engine_ != nullptr) {
       background_engine_->Reset();
     }
@@ -87,7 +93,21 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
   }
 
   void AddRequest(Request request) final { 
+    // std::cout<<"[engine debug]"<<std::endl;
+    // std::cout<< "n: " << request->generation_cfg->n << std::endl;
+    // std::cout<< "temperature: " << request->generation_cfg->temperature << std::endl;
+    // std::cout<< "top_p: " << request->generation_cfg->top_p << std::endl;
+    // std::cout<< "frequency_penalty: " << request->generation_cfg->frequency_penalty << std::endl;
+    // std::cout<< "presence_penalty: " << request->generation_cfg->presence_penalty << std::endl;
+    // std::cout<< "repetition_penalty: " << request->generation_cfg->repetition_penalty << std::endl;
+    // std::cout<< "logprobs: " << request->generation_cfg->logprobs << std::endl;
+    // std::cout<< "top_logprobs: " << request->generation_cfg->top_logprobs << std::endl;
+    // std::cout<< "seed: " << request->generation_cfg->seed << std::endl;
+    // std::cout<< "max_tokens: " << request->generation_cfg->max_tokens << std::endl;
+
+#ifdef DEBUG_MODE    
     std::cout<< "[engine debug] ***Add Request***" << std::endl;
+#endif    
     CHECK(background_engine_ != nullptr) << "Background engine is not loaded.";
     background_engine_->AddRequest(Downcast<Request>(request));
 
@@ -106,6 +126,9 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
 
 
   void AbortRequest(const String& request_id) final {
+#ifdef DEBUG_MODE    
+    std::cout<< "[engine debug] ***Abort request***" << std::endl;
+#endif    
     // in a rare case, abort request can happen after unloading
     // aka background engine is nullptr
     // this happens when the on going generation was interrupted
@@ -193,7 +216,6 @@ class SegmentRunnerEngineImpl : public SegmentRunnerEngine {
 
  private:
   void EngineReloadImpl(const std::string& engine_config_json_str) {
-    std::cout<<"[engine debug] EngineReloadImpl"<<std::endl;
     auto frequest_stream_callback_wrapper = [this](Array<RequestStreamOutput> delta_outputs) {
       bool need_notify = false;
       {

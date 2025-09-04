@@ -317,6 +317,7 @@ std::vector<std::string> _combine_consecutive_messages(std::vector<std::string> 
 
   std::vector<std::string> combined_messages;
   combined_messages.push_back(messages[0]);
+
   for(int i = 1; i < messages.size(); i++){ 
     combined_messages.back() = combined_messages.back() + messages[i];
   }
@@ -374,7 +375,6 @@ std::vector<std::string> ConvertConversationToPrompt(Conversation& conv){
       msg_ += ReplaceString(conv.role_templates[role], role_placeholder, content.Text());
       msg_ += separator;
       message_list.push_back(msg_);
-
       continue;
     }
 

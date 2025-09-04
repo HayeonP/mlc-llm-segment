@@ -44,7 +44,7 @@ void SegmentRunner::Init(std::string model, tvm::Device& device, std::string mod
     picojson::value v;
     std::string err = picojson::parse(v, model_config_json_string);
     const picojson::object& obj = v.get<picojson::object>();
-    _model_config_list.emplace_back(mlc::llm::json_ffi::ModelConfig::FromJSON(obj));
+    _model_config_list.emplace_back(mlc::llm::json_ffi::ModelConfig::FromJSON(obj)); // TODO: Model config list가 나중에 안쓰여서 파라미터가 전달이 안됨
   }
 
   // - Pring logging for regarding the model selection
@@ -64,7 +64,6 @@ void SegmentRunner::Init(std::string model, tvm::Device& device, std::string mod
   _tokenizer = mlc::llm::Tokenizer::FromPath(model_args[0]["model"]);
 
   // _ffi["init_segment_runner_engine"]
-  std::cout<<"[debug] init segment runner engine" << std::endl;
   tvm::ffi::Function init_segment_runner_engine_func = _engine_module->GetFunction("init_segment_runner_engine");
 
   tvm::ffi::Function get_request_stream_callback = tvm::ffi::Function::FromPacked([this](tvm::ffi::PackedArgs args, tvm::ffi::Any* rv) {
@@ -111,7 +110,7 @@ void SegmentRunner::Init(std::string model, tvm::Device& device, std::string mod
 void SegmentRunner::Request(std::string& prompt, int max_tokens){
     
   _request_id = String(std::string("chatcmpl-") + mlc::llm::utils::Uuid4Hex());
-  
+
   _request = _create_chat_completion_request(_model, prompt, max_tokens, false);
 
   /***********************************************************
@@ -126,6 +125,7 @@ void SegmentRunner::Request(std::string& prompt, int max_tokens){
   std::string role;
   ChatCompletionMessageContent content;
 
+  _conv_template.messages.clear();
   for(ChatCompletionMessage message : _request.messages){
     role = message.role;
     content = message.content;
@@ -194,20 +194,10 @@ void SegmentRunner::Request(std::string& prompt, int max_tokens){
   auto extra_stop_str = _conv_template.stop_str;
 
   // kwargs[arg_name] = getattr(request, arg_nbame)
-  generation_config_node->n = _request.n;
-  if(_request.temperature.has_value()) generation_config_node->temperature = _request.temperature.value();
-  if(_request.top_p.has_value()) generation_config_node->top_p = _request.top_p.value();
-  if(_request.max_tokens.has_value()) generation_config_node->max_tokens = _request.max_tokens.value();
-  if(_request.frequency_penalty.has_value()) generation_config_node->frequency_penalty = _request.frequency_penalty.value();
-  if(_request.presence_penalty.has_value()) generation_config_node->presence_penalty = _request.presence_penalty.value();
-  if(_request.logit_bias.has_value()) generation_config_node->logit_bias = _request.logit_bias.value();
-  if(_request.seed.has_value()) generation_config_node->seed = _request.seed.value();
-  if(_request.response_format.has_value()) generation_config_node->response_format = _request.response_format.value();
-  if(_request.debug_config.has_value()) generation_config_node->debug_config = _request.debug_config.value();
-  if(!_request.max_tokens.has_value()) generation_config_node->max_tokens = -1;  // Setting to -1 means the generation will not stop until
-                                                                // exceeding model capability or hit any stop criteria.
-                                                                  
-                                                                  
+
+  
+  generation_config_node->n = _request.n;          
+
   if(_request.stop.has_value()){
     // TODO: Skip
   }
@@ -253,7 +243,7 @@ void SegmentRunner::Request(std::string& prompt, int max_tokens){
     exit(0);
   }
   tvm::ffi::Function init_token_data_func = init_token_data_func_.value();
-  for(IntTuple& prompt : prompts){
+  for(IntTuple& prompt : prompts){    
     std::vector<tvm::ffi::AnyView> prompt_vec;
     for(auto& v : prompt){
       prompt_vec.push_back(static_cast<int32_t>(v));
@@ -269,8 +259,28 @@ void SegmentRunner::Request(std::string& prompt, int max_tokens){
   // _ffi["create_request"]
   tvm::ffi::Function create_request_func = _engine_module->GetFunction("create_request");
   picojson::object obj = generation_config->AsJSON();
+  if(_request.temperature.has_value()) obj["temperature"] = picojson::value(_request.temperature.value());
+  else obj["temperature"] = picojson::value();
+  if(_request.top_p.has_value()) obj["top_p"] = picojson::value(_request.top_p.value());
+  else obj["top_p"] = picojson::value();
+  if(_request.frequency_penalty.has_value()) obj["frequency_penalty"] = picojson::value(_request.frequency_penalty.value());
+  else obj["frequency_penalty"] = picojson::value();
+  if(_request.presence_penalty.has_value()) obj["presence_penalty"] = picojson::value(_request.presence_penalty.value());
+  else obj["presence_penalty"] = picojson::value();
+  // if(_request.logit_bias.has_value()) obj["logit_bias"] = picojson::value(_request.logit_bias.value());
+  // else obj["logit_bias"] = picojson::value();
+  if(_request.seed.has_value()) obj["seed"] = picojson::value(static_cast<int64_t>(_request.seed.value()));
+  else obj["seed"] = picojson::value();
+  // if(_request.response_format.has_value()) obj["response_format"] = picojson::value(_request.response_format.value());
+  // else obj["response_format"] = picojson::value();
+  // if(_request.debug_config.has_value()) obj["debug_config"] = picojson::value(_request.debug_config.value());
+  // else obj["debug_config"] = picojson::value();  
+  if(_request.max_tokens.has_value()) obj["max_tokens"] = picojson::value(static_cast<int64_t>(_request.max_tokens.value()));
+  else obj["max_tokens"] = picojson::value(static_cast<int64_t>(-1));  // Setting to -1 means the generation will not stop until  
+  
+
   picojson::value val(obj);
-  std::string generation_config_str = val.serialize();
+  std::string generation_config_str = val.serialize();  
   
   tvm::ffi::Any create_request_rv = create_request_func(_request_id, input_data, generation_config_str);
   
@@ -304,7 +314,6 @@ std::string SegmentRunner::Execute(){
   tvm::ffi::Function run_segment_func = _engine_module->GetFunction("run_segment");
   run_segment_func();
 
-
   // -------generate segment output = cmpl_generator of _handle_chat_completion
   auto generate_segment_output = _generate_segment_output(); // _chat_completion의 cmpl generator
   std::vector<ChatCompletionStreamResponse> output_response_list;
@@ -327,8 +336,6 @@ std::string SegmentRunner::Execute(){
 
   _trace_recorder.value()->AddEvent(_request_id.value(), std::string("finish segment"));
 
-
-
   // -------Chat completion
   // # Normal response
   std::optional<picojson::value> result_final_usage;
@@ -345,7 +352,7 @@ std::string SegmentRunner::Execute(){
       if(choice.finish_reason.has_value() && !final_finish_reasons[choice.index].empty()){
         final_finish_reasons[choice.index] = mlc::llm::utils::FinishReasonToStr(choice.finish_reason.value());
       }
-      // TODO: Doesn't support logprobs now (tvm v0.21.0 doesn't support it in CPP)      
+      // TODO: Doesn't support logprobs for now (tvm v0.21.0 doesn't support it in CPP)      
     }
   }
 
@@ -716,7 +723,9 @@ ChatCompletionRequest SegmentRunner::_create_chat_completion_request(std::string
   message.role = "user";
   message.content = ChatCompletionMessageContent(prompt);
   request.messages.push_back(message);
-  request.max_tokens = max_tokens;
+  request.max_tokens = max_tokens;  
+
+  if(_seed.has_value()) request.seed = _seed.value();
 
   return request;
 }

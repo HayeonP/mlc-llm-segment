@@ -70,7 +70,8 @@ public:
   void Request(std::string& prompt, int max_tokens);
   std::string Execute();
   bool IsEnd();
-  
+  void SetSeed(int seed) {_seed = seed;}
+
 private:
   void _check_engine_config(std::string model, std::string model_lib, EngineMode mode, mlc::llm::serve::EngineConfig engine_config);
   std::vector<ModelInfo> _parse_members(std::string model, std::string model_lib);
@@ -105,6 +106,7 @@ private:
   bool _is_end;
   ChatCompletionRequest _request;
   Optional<String> _request_id;
+  Optional<int> _seed;
 };
 
 

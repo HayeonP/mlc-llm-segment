@@ -37,11 +37,11 @@
     # generate build configuration
     python ../cmake/gen_cmake_config.py
     # build mlc_llm libraries
-    cmake .. && cmake --build . --parallel $(nproc) && cd ..
+    cmake .. && cmake --build . --parallel $(nproc)
 
     #(Optional) To enable debug mode,
     cmake -DENABLE_DEBUG_MESSAGES=ON ..
-    cmake --build . --parallel $(nproc) && cd ..
+    cmake --build . --parallel $(nproc)
     ```
 
 - Download Llama3.2-1B-Instruct
